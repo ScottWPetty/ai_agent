@@ -14,37 +14,37 @@ client = genai.Client(api_key=api_key)
 def main():
     print("Hello from ai-agent!")
 
-    # accept a command line argument for the prompt.
-    # if prompt not provided, print error message and exit with code 1.
-    # Add --verbose CL argument
+    # command line arguments
+    # check required
     if len(sys.argv) < 2:
         print("Error: No argument provided.")
         sys.exit(1)
-    else:
-        prompt = sys.argv[1]
-        if sys.argv[2] == "--verbose":
-            verbose = True
-        else:
-            verbose = False
+    
+    # discard script name and unpack args
+    _, *rest = sys.argv
 
-    # LLM's work in a conversation. If we keep track of that history, then with each new prompt, the model
-    # can see the entire conversation and respond within the larger context of the conversation.
-    # Each message in the conversation has a "role" (message from either the user or the model). While the program will be "one-shot" for now,
-    # lets update the code to store a list of messages in the conversation, and pass in the "role" appropriately.
-    # Create a new list of types.Content, and set the user's prompt as the only message (for now).
+    prompt = rest[0]
+    flags = set(rest[1:])
+    verbose = "--verbose" in flags
+
+    # message history
     messages = [
         types.Content(role="user", parts=[types.Part(text=prompt)])
     ]
 
-    # Use the client.models.generate_content() method to get a response from the gemini-2.0-flash-001 model (free tier).
-    # The generate_content method returns a GenerateContentResponse object. Print the .txt property of the response
-    # to see the models answer. Update your call to use the messages list.
+    # call to gemini 
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', contents=messages
     )
 
-    print(response.text)
-    print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}\nResponse tokens: {response.usage_metadata.candidates_token_count}")
+    # handle verbose
+    if verbose == True:
+        print(f"User prompt: {prompt}")
+        print(response.text)
+        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+        print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+    else:
+        print(response.text)
 
 if __name__ == "__main__":
     main()
