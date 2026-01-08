@@ -3,7 +3,9 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 import argparse
-import sys
+from prompts import system_prompt
+from config import model_name
+from call_function import available_functions
 
 # load the environment variables from the .env file using the dotenv library and read the API key.
 load_dotenv()
@@ -13,7 +15,7 @@ api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 def main():
-    print("Hello from ai-agent!")
+    # print("Hello from ai-agent!")     # boots did not like this. Not sure about removing it yet.
 
     # command line arguments using argparse
     parser = argparse.ArgumentParser(description="Chatbot")
@@ -27,26 +29,47 @@ def main():
     ]
 
     # call to gemini
+    response = None
+
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash', contents=messages
-        )
+            model=model_name, contents=messages,
+            config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt)
+            )
     except Exception as e:
-        print("something went wrong")
-
+        print("something went wrong: ", e)
+    
+    if response == None:
+        print("No response")
+        return
+    
     # verify usage_metadata incase of failed api request
     if response.usage_metadata == None:
         raise RuntimeError("failed api request")
     
+    # check for function call objects
+    function_calls = response.function_calls
+
     # handle verbose
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-        print(response.text)
-    else:
-        print(response.text)
-    
+        if function_calls:
+            for function_call in function_calls:
+                if function_call.name != None:
+                    print(f"Calling function: {function_call.name}({function_call.args})")
+        else:
+            print(response.text)
 
+    else:
+        if function_calls:
+            for function_call in function_calls:
+                if function_call.name != None:
+                    print(f"Calling function: {function_call.name}({function_call.args})")
+        else:
+            print(response.text)
+
+    
 if __name__ == "__main__":
     main()
